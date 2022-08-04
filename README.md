@@ -6,6 +6,10 @@ _Original paper_: [Data-Enabled Predictive Control: In the Shallows of the DeePC
 _Author_: Alessio Russo (PhD Student at KTH - alessior@kth.se)\
 _License_: MIT
 
+![Closed loop results](examples/images/example.png "Pulley system")
+DeePC applied to a 3-pulley system with sampling time ```math T_s = 0.05```. Transfer function ```math T(z) = \frac{0.28s+0.51}{s^4-1.42s^3 +1.59s^2 -1.32s+0.89}``.
+Check the file in `examples\example.py` for more information.
+
 ## Requirements
 
 - Python 3.7
