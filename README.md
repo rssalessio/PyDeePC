@@ -56,8 +56,8 @@ LAMBDA_Y_REGULARIZER = 0    # y regularizer (see DeePC paper, eq. 8)
 sys = ...
 
 # Generate initial data and initialize DeePC
-u = ... # define input singla
-u = ... # apply input to system and measure output
+u = ... # define input data of length T
+y = ... # apply input to system and measure output
 data = Data(u, y)
 deepc = DeePC(data, Tini = T_INI, horizon = HORIZON)
 
@@ -71,7 +71,7 @@ for idx in range(300):
         g_regularizer = LAMBDA_G_REGULARIZER,
         y_regularizer = LAMBDA_Y_REGULARIZER)
 
-    output = ... # Apply optimal control input to the system and measure output
+    output = ... # Apply optimal control input of size s to the system and measure output
     data_ini = Data(..., ...) # Use last T_INI samples to build a new initial condition
 ```
 
