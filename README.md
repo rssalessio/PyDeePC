@@ -3,7 +3,7 @@
 Python library that implements DeePC: Data-Enabled Predictive Control.
 
 _Original paper_: [Data-Enabled Predictive Control: In the Shallows of the DeePC](https://arxiv.org/pdf/1811.05890.pdf)\
-_Author_: Alessio Russo (PhD Student at KTH - alessior@kth.se)\
+_Library Author_: Alessio Russo (PhD Student at KTH - alessior@kth.se)\
 _License_: MIT
 
 ![Closed loop results](examples/images/example.png "Pulley system")
