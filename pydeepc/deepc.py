@@ -1,6 +1,6 @@
 import numpy as np
-from typing import Tuple, Callable, List, Optional, Union, Dict
 import cvxpy as cp
+from typing import Tuple, Callable, List, Optional, Union, Dict
 from cvxpy.expressions.expression import Expression
 from cvxpy.constraints.constraint import Constraint
 from pydeepc.utils import Data, split_data, create_hankel_matrix
