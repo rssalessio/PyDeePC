@@ -4,10 +4,10 @@ import cvxpy as cp
 from typing import Tuple, Callable, List, Optional, Union, Dict
 from cvxpy.expressions.expression import Expression
 from cvxpy.constraints.constraint import Constraint
-from pydeepc.utils import Data, split_data, create_hankel_matrix
+from pydeepc.utils import Data, split_data, low_rank_matrix_approximation
 
 class DeePC(object):
-    def __init__(self, data: Data, Tini: int, horizon: int):
+    def __init__(self, data: Data, Tini: int, horizon: int, explained_variance: Optional[float] = None):
         """
         Solves the DeePC optimization problem
         For more info check alg. 2 in https://arxiv.org/pdf/1811.05890.pdf
@@ -16,23 +16,39 @@ class DeePC(object):
                                     where T is the batch size and M is the number of features
         :param Tini:                number of samples needed to estimate initial conditions
         :param horizon:             horizon length
+        :param explained_variance:  Regularization term in (0,1] used to approximate the Hankel matrices.
+                                    By default is None (no low-rank approximation is performed).
         """
         self.Tini = Tini
         self.horizon = horizon
-        self.update_data(data)
+        self.update_data(data, explained_variance)
 
-    def update_data(self, data: Data):
+    def update_data(self, data: Data, explained_variance: Optional[float] = None):
         """
         Update Hankel matrices of DeePC
         :param data:                A tuple of input/output data. Data should have shape TxM
                                     where T is the batch size and M is the number of features
+        :param explained_variance:  Regularization term in (0,1] used to approximate the Hankel matrices.
+                                    By default is None (no low-rank approximation is performed).
         """
-        assert len(data.u.shape) == 2, "Data needs to be shaped as a TxM matrix (T is the number of samples and M is the number of features)"
-        assert len(data.y.shape) == 2, "Data needs to be shaped as a TxM matrix (T is the number of samples and M is the number of features)"
-        assert data.y.shape[0] == data.u.shape[0], "Input/output data must have the same length"
-        assert data.y.shape[0] - self.Tini - self.horizon + 1 >= 1, f"There is not enough data: this value {data.y.shape[0] - self.Tini - self.horizon + 1} needs to be >= 1"
-
+        assert len(data.u.shape) == 2, \
+            "Data needs to be shaped as a TxM matrix (T is the number of samples and M is the number of features)"
+        assert len(data.y.shape) == 2, \
+            "Data needs to be shaped as a TxM matrix (T is the number of samples and M is the number of features)"
+        assert data.y.shape[0] == data.u.shape[0], \
+            "Input/output data must have the same length"
+        assert data.y.shape[0] - self.Tini - self.horizon + 1 >= 1, \
+            f"There is not enough data: this value {data.y.shape[0] - self.Tini - self.horizon + 1} needs to be >= 1"
+        assert explained_variance is None or explained_variance > 0 and explained_variance <= 1., \
+            "Explained variance should be None or a value in (0,1]"
+        
         Up, Uf, Yp, Yf = split_data(data, self.Tini, self.horizon)
+
+        if explained_variance is not None:
+            G = low_rank_matrix_approximation(np.vstack([Up, Yp, Uf, Yf]), explained_var=explained_variance)
+            idxs = np.cumsum([Up.shape[0], Yp.shape[0], Uf.shape[0], Yf.shape[0]]).astype(np.int64)
+            Up, Yp = G[:idxs[0]], G[idxs[0] : idxs[1]]
+            Uf, Yf = G[idxs[1] : idxs[2]], G[idxs[2] : idxs[3]]
 
         self.Up = Up
         self.Uf = Uf

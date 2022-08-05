@@ -22,7 +22,7 @@ def loss_callback(u: cp.Variable, y: cp.Variable) -> Expression:
 def constraints_callback(u: cp.Variable, y: cp.Variable) -> List[Constraint]:
     horizon, M, P = u.shape[0], u.shape[1], y.shape[1]
     # Define a list of input/output constraints
-    return [y <= 10, y >= -10, u >= -20, u <= 20]
+    return [y <= 2, y >= 0, u >= -20, u <= 20]
 
 # DeePC paramters
 s = 3                       # How many steps before we solve again the DeePC problem
@@ -78,7 +78,7 @@ for T in T_list:
     data = sys.get_all_samples()
     plt.plot(data.y[T:], label=f'$s={s}, T={T}, T_i={T_INI}, N={HORIZON}$')
 
-
+plt.ylim([0, 2])
 plt.xlabel('Step')
 plt.ylabel('y')
 plt.title('Closed loop output')
