@@ -1,6 +1,6 @@
 import numpy as np
-from typing import NamedTuple, Tuple, Optional, List
-from cvxpy import Expression, Variable, Problem
+from typing import NamedTuple, Tuple, Optional, List, Union
+from cvxpy import Expression, Variable, Problem, Parameter
 from cvxpy.constraints.constraint import Constraint
 
 class OptimizationProblemVariables(NamedTuple):
@@ -8,12 +8,12 @@ class OptimizationProblemVariables(NamedTuple):
     Class used to store all the variables used in the optimization
     problem
     """
-    u_ini: Variable
-    y_ini: Variable
-    u: Variable
-    y: Variable
-    g: Variable
-    sigma_y: Variable
+    u_ini: Union[Variable, Parameter]
+    y_ini: Union[Variable, Parameter]
+    u: Union[Variable, Parameter]
+    y: Union[Variable, Parameter]
+    g: Union[Variable, Parameter]
+    sigma_y: Union[Variable, Parameter]
 
 
 class OptimizationProblem(NamedTuple):
