@@ -1,3 +1,4 @@
+from cmath import isinf
 import numpy as np
 import cvxpy as cp
 from typing import Tuple, Callable, List, Optional, Union, Dict
@@ -48,8 +49,9 @@ class DeePC(object):
             data_ini: Data,
             build_loss: Callable[[cp.Variable, cp.Variable], Expression],
             build_constraints: Optional[Callable[[cp.Variable, cp.Variable], Optional[List[Constraint]]]] = None,
-            g_regularizer: float = 0.,
-            y_regularizer: float = 0.) -> Tuple[np.ndarray, Dict[str, Union[float, np.ndarray]]]:
+            lambda_g: float = 0.,
+            lambda_y: float = 0.,
+            **cvxpy_kwargs) -> Tuple[np.ndarray, Dict[str, Union[float, np.ndarray]]]:
         """
         Solves the DeePC optimization problem
         For more info check alg. 2 in https://arxiv.org/pdf/1811.05890.pdf
@@ -63,10 +65,11 @@ class DeePC(object):
         :param build_constraints:   Callback function that takes as input an (input,output) tuple of data
                                     of shape (TxM), where T is the horizon length and M is the feature size
                                     The callback should return a list of constraints.
-        :param g_regularizer:       non-negative scalar. Regularization factor for g. Used for
+        :param lambda_g:            non-negative scalar. Regularization factor for g. Used for
                                     stochastic/non-linear systems.
-        :param y_regularizer:       non-negative scalar. Regularization factor for y. Used for
+        :param lambda_y:            non-negative scalar. Regularization factor for y. Used for
                                     stochastic/non-linear systems.
+        :param cvxpy_kwargs:        All arguments that need to be passed to the cvxpy solve method.
         :return u_optimal:          Optimal input signal to be applied to the system, of length `horizon`
         :return info:               A dictionary with 5 keys:
                                     info['u']: u decision variable
@@ -82,7 +85,7 @@ class DeePC(object):
         assert data_ini.y.shape[0] == data_ini.u.shape[0], "Input/output data must have the same length"
         assert data_ini.y.shape[0] == self.Tini, f"Invalid size"
         assert build_loss is not None, "Loss function callback cannot be none"
-        assert g_regularizer >= 0 and y_regularizer >= 0, "Regularizers must be non-negative"
+        assert lambda_g >= 0 and lambda_y >= 0, "Regularizers must be non-negative"
 
 
         # Need to transpose to make sure that time is over the columns, and features over the rows
@@ -100,21 +103,38 @@ class DeePC(object):
         # Build constraints
         constraints = [A @ g == b]
 
+        # u, y = self.Uf @ g, self.Yf @ g
         u = cp.reshape(u, (self.horizon, self.M))
         y = cp.reshape(y, (self.horizon, self.P))
+
         _constraints = build_constraints(u, y) if build_constraints is not None else (None, None)
+
+        for idx, constraint in enumerate(_constraints):
+            if constraint is None or not isinstance(constraint, Constraint) or not constraint.is_dcp():
+                raise Exception(f'Constraint {idx} is not defined or is not convex.')
+
         constraints.extend([] if _constraints is None else _constraints)
 
         # Build loss
         _loss = build_loss(u, y)
-        _regularizers = g_regularizer * cp.norm(g, p=1) + y_regularizer * cp.norm(sigma_y, p=1)
-        assert _loss is not None, "Invalid loss"
+        
+        if _loss is None or not isinstance(_loss, Expression) or not _loss.is_dcp():
+            raise Exception('Loss function is not defined or is not convex!')
 
-        objective = cp.Minimize(_loss + _regularizers)
-        problem = cp.Problem(objective, constraints)
+        _regularizers = lambda_g * cp.norm(g, p=1) + lambda_y * cp.norm(sigma_y, p=1)
 
         # Solve problem
-        result = problem.solve()
+        objective = cp.Minimize(_loss + _regularizers)
+
+        try:
+            problem = cp.Problem(objective, constraints)
+            result = problem.solve(**cvxpy_kwargs)
+        except cp.SolverError as e:
+            raise Exception(f'Error while solving the DeePC problem. Details: {e}')
+
+        if np.isinf(result):
+            raise Exception('Problem is unbounded')
+
         u_optimal = (self.Uf @ g.value).reshape(self.horizon, self.M)
         info = {'value': result, 'u': u.value, 'y': y.value, 'g': g.value, 'u_optimal': u_optimal}
 

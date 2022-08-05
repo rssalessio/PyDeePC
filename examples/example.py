@@ -65,8 +65,8 @@ for T in T_list:
             data_ini = data_ini,
             build_loss = loss_callback,
             build_constraints = constraints_callback,
-            g_regularizer = LAMBDA_G_REGULARIZER,
-            y_regularizer = LAMBDA_Y_REGULARIZER)
+            lambda_g = LAMBDA_G_REGULARIZER,
+            lambda_y = LAMBDA_Y_REGULARIZER)
 
         # Apply optimal control input
         _ = sys.apply_input(u = u_optimal[:s, :], noise_std=0)
