@@ -4,6 +4,10 @@ from cvxpy import Expression, Variable, Problem
 from cvxpy.constraints.constraint import Constraint
 
 class OptimizationProblemVariables(NamedTuple):
+    """
+    Class used to store all the variables used in the optimization
+    problem
+    """
     u_ini: Variable
     y_ini: Variable
     u: Variable
@@ -14,7 +18,7 @@ class OptimizationProblemVariables(NamedTuple):
 
 class OptimizationProblem(NamedTuple):
     """
-    Class used to represent an optimization problem
+    Class used to store the elements an optimization problem
     :param problem_variables:   variables of the opt. problem
     :param constraints:         constraints of the problem
     :param objective_function:  objective function
