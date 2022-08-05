@@ -169,10 +169,8 @@ class DeePC(object):
         :param cvxpy_kwargs:        All arguments that need to be passed to the cvxpy solve method.
         :return u_optimal:          Optimal input signal to be applied to the system, of length `horizon`
         :return info:               A dictionary with 5 keys:
-                                    info['u']: u decision variable
-                                    info['y']: y decision variable
+                                    info['variables']: variables of the optimization problem
                                     info['value']: value of the optimization problem
-                                    info['g']: value of g
                                     info['u_optimal']: the same as the first value returned by this function
         """
         assert len(data_ini.u.shape) == 2, "Data needs to be shaped as a TxM matrix (T is the number of samples and M is the number of features)"

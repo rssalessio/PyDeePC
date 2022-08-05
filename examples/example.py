@@ -69,6 +69,7 @@ for T in T_list:
         # Solve DeePC
         u_optimal, info = deepc.solve(data_ini = data_ini, warm_start=True)
 
+
         # Apply optimal control input
         _ = sys.apply_input(u = u_optimal[:s, :], noise_std=0)
 
