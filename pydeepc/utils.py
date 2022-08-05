@@ -1,5 +1,29 @@
 import numpy as np
-from typing import NamedTuple, Tuple, Optional
+from typing import NamedTuple, Tuple, Optional, List
+from cvxpy import Expression, Variable, Problem
+from cvxpy.constraints.constraint import Constraint
+
+class OptimizationProblemVariables(NamedTuple):
+    u_ini: Variable
+    y_ini: Variable
+    u: Variable
+    y: Variable
+    g: Variable
+    sigma_y: Variable
+
+
+class OptimizationProblem(NamedTuple):
+    """
+    Class used to represent an optimization problem
+    :param problem_variables:   variables of the opt. problem
+    :param constraints:         constraints of the problem
+    :param objective_function:  objective function
+    :param problem:             optimization problem object
+    """
+    variables: OptimizationProblemVariables
+    constraints: List[Constraint]
+    objective_function: Expression
+    problem: Problem
 
 class Data(NamedTuple):
     """
@@ -102,3 +126,4 @@ def low_rank_matrix_approximation(
     for i in range(rank):
         X_low += s[i] * np.outer(u[:,i], v[i])
     return X_low
+

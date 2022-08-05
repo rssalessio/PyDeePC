@@ -17,13 +17,19 @@ with sampling time Ts=0.05 [s]. Check the file in `examples\example.py` for more
 ## Requirements
 
 - Python 3.7
-- Numpy, Scipy, Cvxpy
+- Numpy, Scipy, CVXPY
 
 ## Installation
 
 Use the `setup.py` file to install the library (execute the command `pip install .`)
 
 ## Usage/Examples
+
+The library makes extensive use of the CVXPY library. If you are unfamiliar with CVXPY, we strongly
+recommend you to first learn about CVXPY.
+
+The algorithm can be instantiated by creating a `DeePC` object (see example below). Use
+the `DeePC.build_problem` to build the optimization problem and `DeePC.solve` to solve the problem.
 
 To learn how to use the library, check the examples located in the `examples/` folder.
 
@@ -39,14 +45,19 @@ from cvxpy.constraints.constraint import Constraint
 from pydeepc import DeePC
 from pydeepc.utils import Data
 
-# Define the loss function for DeePC
+# Define the loss function for DeePC. The callback should accept
+# 2 input/output variables, each of type Variable (see CVXPY library)
+# The callback must return the objective function
 def loss_callback(u: cp.Variable, y: cp.Variable) -> Expression:
     horizon, M, P = u.shape[0], u.shape[1], y.shape[1]
     ref = 1
     # Sum_t ||y_t - r_t||^2
     return cp.sum(cp.norm(y - ref, p=2, axis=1))  # cp.sum(cp.norm(u, p=2, axis=1))
 
-# Define the constraints for DeePC
+# Define the constraints for DeePC. See also how constraints are defined
+# in CVXPY. The callback should accept # 2 input/output variables, each
+# of type Variable (see CVXPY library). The callback must return a list of
+# constraints
 def constraints_callback(u: cp.Variable, y: cp.Variable) -> List[Constraint]:
     horizon, M, P = u.shape[0], u.shape[1], y.shape[1]
     # Define a list of input/output constraints
@@ -69,15 +80,17 @@ y = ... # apply input to system and measure output
 data = Data(u, y)
 deepc = DeePC(data, Tini = T_INI, horizon = HORIZON)
 
+# Build the deepc problem
+deepc.build_problem(
+    build_loss = loss_callback,
+    build_constraints = constraints_callback,
+    lambda_g = LAMBDA_G_REGULARIZER,
+    lambda_y = LAMBDA_Y_REGULARIZER)
+
 # Simulate for a number of steps
 for idx in range(300):
-    # Solve DeePC
-    u_optimal, info = deepc.solve_deepc(
-        data_ini = data_ini,
-        build_loss = loss_callback,
-        build_constraints = constraints_callback,
-        lambda_g = LAMBDA_G_REGULARIZER,
-        lambda_y = LAMBDA_Y_REGULARIZER)
+    # Update initial data and solve DeepC
+    u_optimal, info = deepc.solve(data_ini = data_ini)
 
     output = ... # Apply optimal control input of size s to the system and measure output
     data_ini = Data(..., ...) # Use last T_INI samples to build a new initial condition

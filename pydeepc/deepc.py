@@ -4,9 +4,16 @@ import cvxpy as cp
 from typing import Tuple, Callable, List, Optional, Union, Dict
 from cvxpy.expressions.expression import Expression
 from cvxpy.constraints.constraint import Constraint
-from pydeepc.utils import Data, split_data, low_rank_matrix_approximation
+from pydeepc.utils import (
+    Data,
+    split_data,
+    low_rank_matrix_approximation,
+    OptimizationProblem,
+    OptimizationProblemVariables)
 
 class DeePC(object):
+    optimization_problem: OptimizationProblem = None
+
     def __init__(self, data: Data, Tini: int, horizon: int, explained_variance: Optional[float] = None):
         """
         Solves the DeePC optimization problem
@@ -23,9 +30,13 @@ class DeePC(object):
         self.horizon = horizon
         self.update_data(data, explained_variance)
 
+        self.optimization_problem = None
+
     def update_data(self, data: Data, explained_variance: Optional[float] = None):
         """
-        Update Hankel matrices of DeePC
+        Update Hankel matrices of DeePC. You need to rebuild the optimization problem
+        after calling this funciton.
+
         :param data:                A tuple of input/output data. Data should have shape TxM
                                     where T is the batch size and M is the number of features
         :param explained_variance:  Regularization term in (0,1] used to approximate the Hankel matrices.
@@ -59,22 +70,18 @@ class DeePC(object):
         self.P = data.y.shape[1]
         self.T = data.u.shape[0]
 
+        self.optimization_problem = None
 
-    def solve_deepc(
-            self,
-            data_ini: Data,
+    def build_problem(self,
             build_loss: Callable[[cp.Variable, cp.Variable], Expression],
             build_constraints: Optional[Callable[[cp.Variable, cp.Variable], Optional[List[Constraint]]]] = None,
             lambda_g: float = 0.,
-            lambda_y: float = 0.,
-            **cvxpy_kwargs) -> Tuple[np.ndarray, Dict[str, Union[float, np.ndarray]]]:
+            lambda_y: float = 0.) -> OptimizationProblem:
         """
-        Solves the DeePC optimization problem
+        Builds the DeePC optimization problem
         For more info check alg. 2 in https://arxiv.org/pdf/1811.05890.pdf
 
-        :param data_ini:            A tuple of input/output data used to estimate initial condition.
-                                    Data should have shape Tini x M where Tini is the batch size and
-                                    M is the number of features
+
         :param build_loss:          Callback function that takes as input an (input,output) tuple of data
                                     of shape (TxM), where T is the horizon length and M is the feature size
                                     The callback should return a scalar value of type Expression
@@ -85,29 +92,16 @@ class DeePC(object):
                                     stochastic/non-linear systems.
         :param lambda_y:            non-negative scalar. Regularization factor for y. Used for
                                     stochastic/non-linear systems.
-        :param cvxpy_kwargs:        All arguments that need to be passed to the cvxpy solve method.
-        :return u_optimal:          Optimal input signal to be applied to the system, of length `horizon`
-        :return info:               A dictionary with 5 keys:
-                                    info['u']: u decision variable
-                                    info['y']: y decision variable
-                                    info['value']: value of the optimization problem
-                                    info['g']: value of g
-                                    info['u_optimal']: the same as the first value returned by this function
+
         """
-        assert len(data_ini.u.shape) == 2, "Data needs to be shaped as a TxM matrix (T is the number of samples and M is the number of features)"
-        assert len(data_ini.y.shape) == 2, "Data needs to be shaped as a TxM matrix (T is the number of samples and M is the number of features)"
-        assert data_ini.u.shape[1] == self.M, "Incorrect number of features for the input signal"
-        assert data_ini.y.shape[1] == self.P, "Incorrect number of features for the output signal"
-        assert data_ini.y.shape[0] == data_ini.u.shape[0], "Input/output data must have the same length"
-        assert data_ini.y.shape[0] == self.Tini, f"Invalid size"
         assert build_loss is not None, "Loss function callback cannot be none"
         assert lambda_g >= 0 and lambda_y >= 0, "Regularizers must be non-negative"
 
-
-        # Need to transpose to make sure that time is over the columns, and features over the rows
-        uini, yini = data_ini.u[:self.Tini].flatten(), data_ini.y[:self.Tini].flatten()
+        self.optimization_problem = False
 
         # Build variables
+        uini = cp.Variable(shape=(self.M * self.Tini))
+        yini = cp.Variable(shape=(self.M * self.Tini))
         u = cp.Variable(shape=(self.M * self.horizon))
         y = cp.Variable(shape=(self.P * self.horizon))
         g = cp.Variable(shape=(self.T - self.Tini - self.horizon + 1))
@@ -138,20 +132,74 @@ class DeePC(object):
             raise Exception('Loss function is not defined or is not convex!')
 
         _regularizers = lambda_g * cp.norm(g, p=1) + lambda_y * cp.norm(sigma_y, p=1)
+        problem_loss = _loss + _regularizers
 
         # Solve problem
-        objective = cp.Minimize(_loss + _regularizers)
+        objective = cp.Minimize(problem_loss)
 
         try:
             problem = cp.Problem(objective, constraints)
-            result = problem.solve(**cvxpy_kwargs)
+        except cp.SolverError as e:
+            raise Exception(f'Error while constructing the DeePC problem. Details: {e}')
+
+        self.optimization_problem = OptimizationProblem(
+            variables = OptimizationProblemVariables(u_ini = uini, y_ini = yini, u = u, y = y, g = g, sigma_y = sigma_y),
+            constraints = constraints,
+            objective_function = problem_loss,
+            problem = problem
+        )
+
+        return self.optimization_problem
+
+    def solve(
+            self,
+            data_ini: Data,
+            **cvxpy_kwargs
+        ) -> Tuple[np.ndarray, Dict[str, Union[float, np.ndarray, OptimizationProblemVariables]]]:
+        """
+        Solves the DeePC optimization problem
+        For more info check alg. 2 in https://arxiv.org/pdf/1811.05890.pdf
+
+        :param data_ini:            A tuple of input/output data used to estimate initial condition.
+                                    Data should have shape Tini x M where Tini is the batch size and
+                                    M is the number of features
+        :param cvxpy_kwargs:        All arguments that need to be passed to the cvxpy solve method.
+        :return u_optimal:          Optimal input signal to be applied to the system, of length `horizon`
+        :return info:               A dictionary with 5 keys:
+                                    info['u']: u decision variable
+                                    info['y']: y decision variable
+                                    info['value']: value of the optimization problem
+                                    info['g']: value of g
+                                    info['u_optimal']: the same as the first value returned by this function
+        """
+        assert len(data_ini.u.shape) == 2, "Data needs to be shaped as a TxM matrix (T is the number of samples and M is the number of features)"
+        assert len(data_ini.y.shape) == 2, "Data needs to be shaped as a TxM matrix (T is the number of samples and M is the number of features)"
+        assert data_ini.u.shape[1] == self.M, "Incorrect number of features for the input signal"
+        assert data_ini.y.shape[1] == self.P, "Incorrect number of features for the output signal"
+        assert data_ini.y.shape[0] == data_ini.u.shape[0], "Input/output data must have the same length"
+        assert data_ini.y.shape[0] == self.Tini, f"Invalid size"
+        assert self.optimization_problem is not None, "Problem was not built"
+
+
+        # Need to transpose to make sure that time is over the columns, and features over the rows
+        uini, yini = data_ini.u[:self.Tini].flatten(), data_ini.y[:self.Tini].flatten()
+
+        self.optimization_problem.variables.u_ini.value = uini
+        self.optimization_problem.variables.y_ini.value = yini
+
+        try:
+            result = self.optimization_problem.problem.solve(**cvxpy_kwargs)
         except cp.SolverError as e:
             raise Exception(f'Error while solving the DeePC problem. Details: {e}')
 
         if np.isinf(result):
             raise Exception('Problem is unbounded')
 
-        u_optimal = (self.Uf @ g.value).reshape(self.horizon, self.M)
-        info = {'value': result, 'u': u.value, 'y': y.value, 'g': g.value, 'u_optimal': u_optimal}
+        u_optimal = (self.Uf @ self.optimization_problem.variables.g.value).reshape(self.horizon, self.M)
+        info = {
+            'value': result, 
+            'variables': self.optimization_problem.variables,
+            'u_optimal': u_optimal
+            }
 
         return u_optimal, info

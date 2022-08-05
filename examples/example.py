@@ -59,14 +59,15 @@ for T in T_list:
     data_ini = Data(u = np.zeros((T_INI, 1)), y = np.zeros((T_INI, 1)))
     sys.reset(data_ini = data_ini)
 
+    deepc.build_problem(
+        build_loss = loss_callback,
+        build_constraints = constraints_callback,
+        lambda_g = LAMBDA_G_REGULARIZER,
+        lambda_y = LAMBDA_Y_REGULARIZER)
+
     for idx in range(300):
         # Solve DeePC
-        u_optimal, info = deepc.solve_deepc(
-            data_ini = data_ini,
-            build_loss = loss_callback,
-            build_constraints = constraints_callback,
-            lambda_g = LAMBDA_G_REGULARIZER,
-            lambda_y = LAMBDA_Y_REGULARIZER)
+        u_optimal, info = deepc.solve(data_ini = data_ini)
 
         # Apply optimal control input
         _ = sys.apply_input(u = u_optimal[:s, :], noise_std=0)
