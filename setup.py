@@ -4,7 +4,7 @@ from os import path
 
 setup(name = 'PyDeePC',
     packages=find_packages(),
-    version = '0.2.0',
+    version = '0.3.0',
     description = 'Python library for Data-Enabled Predictive Control',
     url = 'https://github.com/rssalessio/PyDeePC',
     author = 'Alessio Russo',

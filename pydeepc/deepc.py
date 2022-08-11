@@ -67,10 +67,14 @@ class DeePC(object):
             build_constraints: Optional[Callable[[cp.Variable, cp.Variable], Optional[List[Constraint]]]] = None,
             lambda_g: float = 0.,
             lambda_y: float = 0.,
-            explained_variance: Optional[float] = None) -> OptimizationProblem:
+            lambda_u: float= 0.,
+            lambda_proj: float = 0.) -> OptimizationProblem:
         """
         Builds the DeePC optimization problem
         For more info check alg. 2 in https://arxiv.org/pdf/1811.05890.pdf
+
+        For info on the projection (least-square) regularizer, see also
+        https://arxiv.org/pdf/2101.01273.pdf
 
 
         :param build_loss:          Callback function that takes as input an (input,output) tuple of data
@@ -81,16 +85,17 @@ class DeePC(object):
                                     The callback should return a list of constraints.
         :param lambda_g:            non-negative scalar. Regularization factor for g. Used for
                                     stochastic/non-linear systems.
-        :param lambda_y:            non-negative scalar. Regularization factor for y. Used for
+        :param lambda_y:            non-negative scalar. Regularization factor for y_init. Used for
                                     stochastic/non-linear systems.
-        :param explained_variance:  Regularization term in (0,1] used to approximate the Hankel matrices.
-                                    By default is None (no low-rank approximation is performed).
+        :param lambda_u:            non-negative scalar. Regularization factor for u_init. Used for
+                                    stochastic/non-linear systems.
+        :param lambda_proj:         Positive term that penalizes the least square solution.
         :return:                    Parameters of the optimization problem
         """
         assert build_loss is not None, "Loss function callback cannot be none"
         assert lambda_g >= 0 and lambda_y >= 0, "Regularizers must be non-negative"
-        assert explained_variance is None or explained_variance > 0 and explained_variance <= 1., \
-            "Explained variance should be None or a value in (0,1]"
+        assert lambda_u >= 0, "Regularizer of u_init must be non-negative"
+        assert lambda_proj >= 0, "The projection regularizer must be non-negative"
 
         self.optimization_problem = False
 
@@ -101,17 +106,20 @@ class DeePC(object):
         y = cp.Variable(shape=(self.P * self.horizon))
         g = cp.Variable(shape=(self.T - self.Tini - self.horizon + 1))
         sigma_y = cp.Variable(shape=(self.Tini * self.P))
+        sigma_u = cp.Variable(shape=(self.Tini * self.M))
 
         Up, Yp, Uf, Yf = self.Up, self.Yp, self.Uf, self.Yf
 
-        if explained_variance is not None:
-            G = low_rank_matrix_approximation(np.vstack([Up, Yp, Uf, Yf]), explained_var=explained_variance)
-            idxs = np.cumsum([Up.shape[0], Yp.shape[0], Uf.shape[0], Yf.shape[0]]).astype(np.int64)
-            Up, Yp = G[:idxs[0]], G[idxs[0] : idxs[1]]
-            Uf, Yf = G[idxs[1] : idxs[2]], G[idxs[2] : idxs[3]]
+        if lambda_proj is not None:
+            # Compute projection matrix (for the least square solution)
+            Zp = np.vstack([Up, Yp, Uf])
+            ZpInv = np.linalg.pinv(Zp)
+            I = np.eye(self.T - self.Tini - self.horizon + 1)
+            # Kernel orthogonal projector
+            I_min_P = I - (ZpInv@ Zp)
 
-        A = cp.vstack([Up, Yp, Uf, Yf])
-        b = cp.hstack([uini, yini + sigma_y, u, y])
+        A = np.vstack([Up, Yp, Uf, Yf])
+        b = cp.hstack([uini + sigma_u, yini + sigma_y, u, y])
 
         # Build constraints
         constraints = [A @ g == b]
@@ -134,7 +142,12 @@ class DeePC(object):
         if _loss is None or not isinstance(_loss, Expression) or not _loss.is_dcp():
             raise Exception('Loss function is not defined or is not convex!')
 
-        _regularizers = lambda_g * cp.norm(g, p=1) + lambda_y * cp.norm(sigma_y, p=1)
+        # Add regularizers
+        _regularizers = lambda_g * cp.norm(g, p=1) if lambda_g > 0 else 0
+        _regularizers += lambda_y * cp.norm(sigma_y, p=1) if lambda_y > 0 else 0
+        _regularizers += lambda_proj * cp.norm(I_min_P @ g) if lambda_proj > 0  else 0
+        _regularizers += lambda_u * cp.norm(sigma_u, p=1) if lambda_u > 0 else 0
+
         problem_loss = _loss + _regularizers
 
         # Solve problem

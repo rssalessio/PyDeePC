@@ -51,14 +51,15 @@ def create_hankel_matrix(data: np.ndarray, order: int) -> np.ndarray:
     :return:        The Hankel matrix of type np.ndarray
     """
     data = np.array(data)
-    T = len(data)
+    
     assert len(data.shape) == 2, "Data needs to be a matrix"
-    assert T >= order and order > 0, "The number of data points needs to be larger than the order"
-    M = data.shape[1]
 
-    H = np.zeros((order, (T - order + 1)*M))
+    T,M = data.shape
+    assert T >= order and order > 0, "The number of data points needs to be larger than the order"
+
+    H = np.zeros((order * M, (T - order + 1)))
     for idx in range (T - order + 1):
-        H[:, idx*M : (idx + 1)*M] = data[idx:idx+order, :]
+        H[:, idx] = data[idx:idx+order, :].flatten()
     return H
 
 def split_data(data: Data, Tini: int, horizon: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:

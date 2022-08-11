@@ -96,6 +96,10 @@ for idx in range(300):
     data_ini = Data(..., ...) # Use last T_INI samples to build a new initial condition
 ```
 
+## Known problems
+
+- When using the projection regularizer you may encounter some problems while using the ECOS solver. We suggest setting the regularizer to 0, or using another solver (e.g., MOSEK)
+
 ## TODO
 
 - Add tests
