@@ -79,11 +79,12 @@ def split_data(data: Data, Tini: int, horizon: int) -> Tuple[np.ndarray, np.ndar
     assert Tini >= 1, "Tini cannot be lower than 1"
     assert horizon >= 1, "Horizon cannot be lower than 1"
 
+    Mu, My = data.u.shape[1], data.y.shape[1]
     Hu = create_hankel_matrix(data.u, Tini + horizon)
     Hy = create_hankel_matrix(data.y, Tini + horizon)
 
-    Up, Uf = Hu[:Tini], Hu[-horizon:]
-    Yp, Yf = Hy[:Tini], Hy[-horizon:]
+    Up, Uf = Hu[:Tini * Mu], Hu[-horizon * Mu:]
+    Yp, Yf = Hy[:Tini * My], Hy[-horizon * My:]
     
     return Up, Uf, Yp, Yf
 
