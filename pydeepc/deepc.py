@@ -101,7 +101,7 @@ class DeePC(object):
 
         # Build variables
         uini = cp.Parameter(shape=(self.M * self.Tini))
-        yini = cp.Parameter(shape=(self.M * self.Tini))
+        yini = cp.Parameter(shape=(self.P * self.Tini))
         u = cp.Variable(shape=(self.M * self.horizon))
         y = cp.Variable(shape=(self.P * self.horizon))
         g = cp.Variable(shape=(self.T - self.Tini - self.horizon + 1))
