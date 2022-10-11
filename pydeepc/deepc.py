@@ -68,7 +68,8 @@ class DeePC(object):
             lambda_g: float = 0.,
             lambda_y: float = 0.,
             lambda_u: float= 0.,
-            lambda_proj: float = 0.) -> OptimizationProblem:
+            lambda_proj: float = 0.,
+            tolerance: float = 1e-9) -> OptimizationProblem:
         """
         Builds the DeePC optimization problem
         For more info check alg. 2 in https://arxiv.org/pdf/1811.05890.pdf
@@ -100,17 +101,17 @@ class DeePC(object):
         self.optimization_problem = False
 
         # Build variables
-        uini = cp.Parameter(shape=(self.M * self.Tini))
-        yini = cp.Parameter(shape=(self.P * self.Tini))
-        u = cp.Variable(shape=(self.M * self.horizon))
-        y = cp.Variable(shape=(self.P * self.horizon))
-        g = cp.Variable(shape=(self.T - self.Tini - self.horizon + 1))
-        sigma_y = cp.Variable(shape=(self.Tini * self.P))
-        sigma_u = cp.Variable(shape=(self.Tini * self.M))
+        uini = cp.Parameter(shape=(self.M * self.Tini), name='u_ini')
+        yini = cp.Parameter(shape=(self.P * self.Tini), name='y_ini')
+        u = cp.Variable(shape=(self.M * self.horizon), name='u')
+        y = cp.Variable(shape=(self.P * self.horizon), name='y')
+        g = cp.Variable(shape=(self.T - self.Tini - self.horizon + 1), name='g')
+        sigma_y = cp.Variable(shape=(self.Tini * self.P), name='sigma_y')
+        sigma_u = cp.Variable(shape=(self.Tini * self.M), name='sigma_u')
 
         Up, Yp, Uf, Yf = self.Up, self.Yp, self.Uf, self.Yf
 
-        if lambda_proj is not None:
+        if lambda_proj > tolerance:
             # Compute projection matrix (for the least square solution)
             Zp = np.vstack([Up, Yp, Uf])
             ZpInv = np.linalg.pinv(Zp)
@@ -143,10 +144,10 @@ class DeePC(object):
             raise Exception('Loss function is not defined or is not convex!')
 
         # Add regularizers
-        _regularizers = lambda_g * cp.norm(g, p=1) if lambda_g > 0 else 0
-        _regularizers += lambda_y * cp.norm(sigma_y, p=1) if lambda_y > 0 else 0
-        _regularizers += lambda_proj * cp.norm(I_min_P @ g) if lambda_proj > 0  else 0
-        _regularizers += lambda_u * cp.norm(sigma_u, p=1) if lambda_u > 0 else 0
+        _regularizers = lambda_g * cp.norm(g, p=1) if lambda_g > tolerance else 0
+        _regularizers += lambda_y * cp.norm(sigma_y, p=1) if lambda_y > tolerance else 0
+        _regularizers += lambda_proj * cp.norm(I_min_P @ g) if lambda_proj > tolerance  else 0
+        _regularizers += lambda_u * cp.norm(sigma_u, p=1) if lambda_u > tolerance else 0
 
         problem_loss = _loss + _regularizers
 
