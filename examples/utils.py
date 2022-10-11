@@ -27,8 +27,14 @@ class System(object):
         :return: tuple that contains the (input,output) of the system
         """
         T = len(u)
-        t, y, x0 = scipysig.dlsim(self.sys, u, x0 = self.x0)
-        self.x0 = x0[-1]
+        if T > 1:
+            # If u is a signal of length > 1 use dlsim for quicker computation
+            t, y, x0 = scipysig.dlsim(self.sys, u, t = np.arange(T) * self.sys.dt, x0 = self.x0)
+            self.x0 = x0[-1]
+        else:
+            y = self.sys.C @ self.x0
+            self.x0 = self.sys.A @ self.x0.flatten() + self.sys.B @ u.flatten()
+
         y = y + noise_std * np.random.normal(size = T).reshape(T, 1)
 
         self.u = np.vstack([self.u, u]) if self.u is not None else u
@@ -49,13 +55,13 @@ class System(object):
         """
         return Data(self.u, self.y)
 
-    def reset(self, data_ini: Data = None):
+    def reset(self, data_ini: Optional[Data] = None, x0: Optional[np.ndarray] = None):
         """
         Reset initial state and collected data
         """
         self.u = None if data_ini is None else data_ini.u
         self.y = None if data_ini is None else data_ini.y
-        self.x0 = None
+        self.x0 = x0 if x0 is not None else np.zeros(self.sys.A.shape[0])
 
 
 
