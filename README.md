@@ -6,9 +6,9 @@ _Original paper_: [Data-Enabled Predictive Control: In the Shallows of the DeePC
 _Library Author_: Alessio Russo (PhD Student at KTH - alessior@kth.se)\
 _License_: MIT
 
-_Contributors_:
+_Other contributors_:
     - Many thanks to [Edgar W.](https://github.com/techniccontroller) for spotting out a bug that
-      let the variables  `sigma_u` and `sigma_y` assume any values when the corresponding value of
+      let the variables  `sigma_u` and `sigma_y` assume any value when the corresponding value of
       lambda was `0`.
 
 ![Closed loop results](examples/images/example_siso_pulley.png "Pulley system")
