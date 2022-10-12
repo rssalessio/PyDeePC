@@ -6,13 +6,18 @@ _Original paper_: [Data-Enabled Predictive Control: In the Shallows of the DeePC
 _Library Author_: Alessio Russo (PhD Student at KTH - alessior@kth.se)\
 _License_: MIT
 
-![Closed loop results](examples/images/example.png "Pulley system")
+_Contributors_:
+    - Many thanks to [Edgar W.](https://github.com/techniccontroller) for spotting out a bug that
+      let the variables  `sigma_u` and `sigma_y` assume any values when the corresponding value of
+      lambda was `0`.
+
+![Closed loop results](examples/images/example_siso_pulley.png "Pulley system")
 
 DeePC applied to a 3-pulley system with transfer function 
 ```math
 T(z) = \frac{0.28z+0.51}{z^4-1.42z^3 +1.59z^2 -1.32z+0.89}
 ```
-with sampling time Ts=0.05 [s]. Check the file in `examples\example.py` for more information.
+with sampling time Ts=0.05 [s]. Check the file in `examples\example_siso_pulley.py` for more information.
 
 ## Requirements
 
@@ -50,9 +55,8 @@ from pydeepc.utils import Data
 # The callback must return the objective function
 def loss_callback(u: cp.Variable, y: cp.Variable) -> Expression:
     horizon, M, P = u.shape[0], u.shape[1], y.shape[1]
-    ref = 1
-    # Sum_t ||y_t - r_t||^2
-    return cp.sum(cp.norm(y - ref, p=2, axis=1))  # cp.sum(cp.norm(u, p=2, axis=1))
+    # Sum_t ||y_t - 1||^2
+    return cp.norm(y - 1, 'fro') + 0.1 * cp.norm(u, 'fro)
 
 # Define the constraints for DeePC. See also how constraints are defined
 # in CVXPY. The callback should accept # 2 input/output variables, each
@@ -103,7 +107,6 @@ for idx in range(300):
 ## TODO
 
 - Add tests
-- Add stochastic system example
 
 ## License
 

@@ -1,4 +1,6 @@
-from cmath import isinf
+from cmath import isclose
+from copy import deepcopy
+import math
 import numpy as np
 import cvxpy as cp
 from typing import Tuple, Callable, List, Optional, Union, Dict
@@ -11,8 +13,12 @@ from pydeepc.utils import (
     OptimizationProblem,
     OptimizationProblemVariables)
 
+
+
+
 class DeePC(object):
     optimization_problem: OptimizationProblem = None
+    _SMALL_NUMBER: float = 1e-32
 
     def __init__(self, data: Data, Tini: int, horizon: int):
         """
@@ -68,8 +74,7 @@ class DeePC(object):
             lambda_g: float = 0.,
             lambda_y: float = 0.,
             lambda_u: float= 0.,
-            lambda_proj: float = 0.,
-            tolerance: float = 1e-9) -> OptimizationProblem:
+            lambda_proj: float = 0.) -> OptimizationProblem:
         """
         Builds the DeePC optimization problem
         For more info check alg. 2 in https://arxiv.org/pdf/1811.05890.pdf
@@ -111,7 +116,7 @@ class DeePC(object):
 
         Up, Yp, Uf, Yf = self.Up, self.Yp, self.Uf, self.Yf
 
-        if lambda_proj > tolerance:
+        if lambda_proj > DeePC._SMALL_NUMBER:
             # Compute projection matrix (for the least square solution)
             Zp = np.vstack([Up, Yp, Uf])
             ZpInv = np.linalg.pinv(Zp)
@@ -124,6 +129,11 @@ class DeePC(object):
 
         # Build constraints
         constraints = [A @ g == b]
+
+        if math.isclose(lambda_y, 0):
+            constraints.append(cp.norm(sigma_y, 2) <= DeePC._SMALL_NUMBER)
+        if math.isclose(lambda_u, 0):
+            constraints.append(cp.norm(sigma_u, 2) <= DeePC._SMALL_NUMBER)
 
         # u, y = self.Uf @ g, self.Yf @ g
         u = cp.reshape(u, (self.horizon, self.M))
@@ -144,10 +154,10 @@ class DeePC(object):
             raise Exception('Loss function is not defined or is not convex!')
 
         # Add regularizers
-        _regularizers = lambda_g * cp.norm(g, p=1) if lambda_g > tolerance else 0
-        _regularizers += lambda_y * cp.norm(sigma_y, p=1) if lambda_y > tolerance else 0
-        _regularizers += lambda_proj * cp.norm(I_min_P @ g) if lambda_proj > tolerance  else 0
-        _regularizers += lambda_u * cp.norm(sigma_u, p=1) if lambda_u > tolerance else 0
+        _regularizers = lambda_g * cp.norm(g, p=1) if lambda_g > DeePC._SMALL_NUMBER else 0
+        _regularizers += lambda_y * cp.norm(sigma_y, p=1) if lambda_y > DeePC._SMALL_NUMBER else 0
+        _regularizers += lambda_proj * cp.norm(I_min_P @ g) if lambda_proj > DeePC._SMALL_NUMBER  else 0
+        _regularizers += lambda_u * cp.norm(sigma_u, p=1) if lambda_u > DeePC._SMALL_NUMBER else 0
 
         problem_loss = _loss + _regularizers
 

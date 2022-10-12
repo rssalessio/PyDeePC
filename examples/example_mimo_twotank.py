@@ -15,7 +15,7 @@ from utils import System
 def loss_callback(u: cp.Variable, y: cp.Variable) -> Expression:
     horizon, M, P = u.shape[0], u.shape[1], y.shape[1]
     ref = np.ones(y.shape)
-    return 1e6 * cp.norm(y-ref,'fro')**2
+    return  cp.norm(y-ref,'fro')**2
 
 # Define the constraints for DeePC
 def constraints_callback(u: cp.Variable, y: cp.Variable) -> List[Constraint]:
@@ -26,11 +26,12 @@ def constraints_callback(u: cp.Variable, y: cp.Variable) -> List[Constraint]:
 
 # DeePC paramters
 s = 1                       # How many steps before we solve again the DeePC problem
-T_INI = 1                   # Size of the initial set of data
-T_list = [250]              # Number of data points used to estimate the system
-HORIZON = 50                # Horizon length
+T_INI = 2                   # Size of the initial set of data
+T_list = [100]              # Number of data points used to estimate the system
+HORIZON = 10                # Horizon length
 LAMBDA_G_REGULARIZER = 0    # g regularizer (see DeePC paper, eq. 8)
 LAMBDA_Y_REGULARIZER = 0    # y regularizer (see DeePC paper, eq. 8)
+LAMBDA_U_REGULARIZER = 0    # u regularizer
 EXPERIMENT_HORIZON = 100    # Total number of steps
 
 # model of two-tank example
@@ -64,14 +65,15 @@ for T in T_list:
         build_loss = loss_callback,
         build_constraints = constraints_callback,
         lambda_g = LAMBDA_G_REGULARIZER,
-        lambda_y = LAMBDA_Y_REGULARIZER)
+        lambda_y = LAMBDA_Y_REGULARIZER,
+        lambda_u = LAMBDA_U_REGULARIZER)
 
     for _ in range(EXPERIMENT_HORIZON//s):
         # Solve DeePC
         u_optimal, info = deepc.solve(data_ini = data_ini, warm_start=True)
 
         # Apply optimal control input
-        _ = sys.apply_input(u = u_optimal[:s, :], noise_std=0)
+        _ = sys.apply_input(u = u_optimal[:s, :], noise_std=1e-2)
 
         # Fetch last T_INI samples
         data_ini = sys.get_last_n_samples(T_INI)
@@ -89,6 +91,7 @@ ax[0].grid()
 ax[1].set_ylabel('u')
 ax[1].set_xlabel('t')
 ax[1].grid()
-plt.title('Closed loop output')
+ax[0].set_title('Closed loop - output signal $y_t$')
+ax[1].set_title('Closed loop - control signal $u_t$')
 plt.legend(fancybox=True, shadow=True)
 plt.show()

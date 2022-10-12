@@ -14,23 +14,24 @@ from utils import System
 # Define the loss function for DeePC
 def loss_callback(u: cp.Variable, y: cp.Variable) -> Expression:
     horizon, M, P = u.shape[0], u.shape[1], y.shape[1]
-    ref = 1
-    # Sum_t ||y_t - r_t||^2
-    return cp.sum(cp.norm(y - ref, p=2, axis=1))  # cp.sum(cp.norm(u, p=2, axis=1))
+    # Sum_t ||y_t - 1||^2
+    return 1e3 * cp.norm(y-1,'fro')**2 + 1e-1 * cp.norm(u, 'fro')**2
 
 # Define the constraints for DeePC
 def constraints_callback(u: cp.Variable, y: cp.Variable) -> List[Constraint]:
     horizon, M, P = u.shape[0], u.shape[1], y.shape[1]
     # Define a list of input/output constraints
-    return [y <= 2, y >= 0, u >= -20, u <= 20]
+    return []
 
 # DeePC paramters
-s = 3                       # How many steps before we solve again the DeePC problem
-T_INI = 5                   # Size of the initial set of data
-T_list = [100, 150, 200]    # Number of data points used to estimate the system
-HORIZON = 30                # Horizon length
+s = 1                       # How many steps before we solve again the DeePC problem
+T_INI = 4                   # Size of the initial set of data
+T_list = [50, 500]          # Number of data points used to estimate the system
+HORIZON = 10                # Horizon length
 LAMBDA_G_REGULARIZER = 0    # g regularizer (see DeePC paper, eq. 8)
 LAMBDA_Y_REGULARIZER = 0    # y regularizer (see DeePC paper, eq. 8)
+LAMBDA_U_REGULARIZER = 0    # u regularizer
+EXPERIMENT_HORIZON = 100    # Total number of steps
 
 # Plant
 # In this example we consider the three-pulley 
@@ -45,11 +46,13 @@ num = [0.28261, 0.50666]
 den = [1, -1.41833, 1.58939, -1.31608, 0.88642]
 sys = System(scipysig.TransferFunction(num, den, dt=dt).to_ss())
 
-plt.figure()
+fig, ax = plt.subplots(1,2)
 plt.margins(x=0, y=0)
+
 
 # Simulate for different values of T
 for T in T_list:
+    print(f'Simulating with {T} initial samples...')
     sys.reset()
     # Generate initial data and initialize DeePC
     data = sys.apply_input(u = np.random.normal(size=T).reshape((T, 1)), noise_std=0)
@@ -63,27 +66,34 @@ for T in T_list:
         build_loss = loss_callback,
         build_constraints = constraints_callback,
         lambda_g = LAMBDA_G_REGULARIZER,
-        lambda_y = LAMBDA_Y_REGULARIZER)
+        lambda_y = LAMBDA_Y_REGULARIZER,
+        lambda_u = LAMBDA_U_REGULARIZER)
 
-    for idx in range(300):
+    for idx in range(EXPERIMENT_HORIZON // s):
         # Solve DeePC
         u_optimal, info = deepc.solve(data_ini = data_ini, warm_start=True)
 
 
         # Apply optimal control input
-        _ = sys.apply_input(u = u_optimal[:s, :], noise_std=0)
+        _ = sys.apply_input(u = u_optimal[:s, :], noise_std=1e-2)
 
         # Fetch last T_INI samples
         data_ini = sys.get_last_n_samples(T_INI)
 
     # Plot curve
     data = sys.get_all_samples()
-    plt.plot(data.y[T:], label=f'$s={s}, T={T}, T_i={T_INI}, N={HORIZON}$')
+    ax[0].plot(data.y, label=f'$s={s}, T={T}, T_i={T_INI}, N={HORIZON}$')
+    ax[1].plot(data.u, label=f'$s={s}, T={T}, T_i={T_INI}, N={HORIZON}$')
 
-plt.ylim([0, 2])
-plt.xlabel('Step')
-plt.ylabel('y')
-plt.title('Closed loop output')
-plt.legend(fancybox=True, shadow=True)
-plt.grid()
+ax[0].set_ylim(0, 2)
+ax[1].set_ylim(-4, 4)
+ax[0].set_xlabel('t')
+ax[0].set_ylabel('y')
+ax[0].grid()
+ax[1].set_ylabel('u')
+ax[1].set_xlabel('t')
+ax[1].grid()
+ax[0].set_title('Closed loop - output signal $y_t$')
+ax[1].set_title('Closed loop - control signal $u_t$')
+ax[0].legend(fancybox=True, shadow=True)
 plt.show()
