@@ -14,6 +14,7 @@ class OptimizationProblemVariables(NamedTuple):
     y: Union[Variable, Parameter]
     g: Union[Variable, Parameter]
     sigma_y: Union[Variable, Parameter]
+    sigma_u: Union[Variable, Parameter]
 
 
 class OptimizationProblem(NamedTuple):
