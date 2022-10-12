@@ -8,8 +8,8 @@ _License_: MIT
 
 _Other contributors_:
     - Many thanks to [Edgar W.](https://github.com/techniccontroller) for spotting out a bug that
-      let the slack variables  `sigma_u` and `sigma_y` assume any value when the corresponding 
-      regularizer's value was `0`.
+      let the slack variables  `sigma_u` and `sigma_y` assume any value when the value of the 
+      corresponding regularizer was `0`.
 
 ![Closed loop results](examples/images/example_siso_pulley.png "Pulley system")
 
