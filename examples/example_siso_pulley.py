@@ -82,8 +82,8 @@ for T in T_list:
 
     # Plot curve
     data = sys.get_all_samples()
-    ax[0].plot(data.y, label=f'$s={s}, T={T}, T_i={T_INI}, N={HORIZON}$')
-    ax[1].plot(data.u, label=f'$s={s}, T={T}, T_i={T_INI}, N={HORIZON}$')
+    ax[0].plot(data.y[T_INI:], label=f'$s={s}, T={T}, T_i={T_INI}, N={HORIZON}$')
+    ax[1].plot(data.u[T_INI:], label=f'$s={s}, T={T}, T_i={T_INI}, N={HORIZON}$')
 
 ax[0].set_ylim(0, 2)
 ax[1].set_ylim(-4, 4)

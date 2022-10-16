@@ -111,8 +111,8 @@ class DeePC(object):
         u = cp.Variable(shape=(self.M * self.horizon), name='u')
         y = cp.Variable(shape=(self.P * self.horizon), name='y')
         g = cp.Variable(shape=(self.T - self.Tini - self.horizon + 1), name='g')
-        sigma_y = cp.Variable(shape=(self.Tini * self.P), name='sigma_y')
-        sigma_u = cp.Variable(shape=(self.Tini * self.M), name='sigma_u')
+        slack_y = cp.Variable(shape=(self.Tini * self.P), name='slack_y')
+        slack_u = cp.Variable(shape=(self.Tini * self.M), name='slack_u')
 
         Up, Yp, Uf, Yf = self.Up, self.Yp, self.Uf, self.Yf
 
@@ -125,15 +125,15 @@ class DeePC(object):
             I_min_P = I - (ZpInv@ Zp)
 
         A = np.vstack([Up, Yp, Uf, Yf])
-        b = cp.hstack([uini + sigma_u, yini + sigma_y, u, y])
+        b = cp.hstack([uini + slack_u, yini + slack_y, u, y])
 
         # Build constraints
         constraints = [A @ g == b]
 
         if math.isclose(lambda_y, 0):
-            constraints.append(cp.norm(sigma_y, 2) <= DeePC._SMALL_NUMBER)
+            constraints.append(cp.norm(slack_y, 2) <= DeePC._SMALL_NUMBER)
         if math.isclose(lambda_u, 0):
-            constraints.append(cp.norm(sigma_u, 2) <= DeePC._SMALL_NUMBER)
+            constraints.append(cp.norm(slack_u, 2) <= DeePC._SMALL_NUMBER)
 
         # u, y = self.Uf @ g, self.Yf @ g
         u = cp.reshape(u, (self.horizon, self.M))
@@ -155,9 +155,9 @@ class DeePC(object):
 
         # Add regularizers
         _regularizers = lambda_g * cp.norm(g, p=1) if lambda_g > DeePC._SMALL_NUMBER else 0
-        _regularizers += lambda_y * cp.norm(sigma_y, p=1) if lambda_y > DeePC._SMALL_NUMBER else 0
+        _regularizers += lambda_y * cp.norm(slack_y, p=1) if lambda_y > DeePC._SMALL_NUMBER else 0
         _regularizers += lambda_proj * cp.norm(I_min_P @ g) if lambda_proj > DeePC._SMALL_NUMBER  else 0
-        _regularizers += lambda_u * cp.norm(sigma_u, p=1) if lambda_u > DeePC._SMALL_NUMBER else 0
+        _regularizers += lambda_u * cp.norm(slack_u, p=1) if lambda_u > DeePC._SMALL_NUMBER else 0
 
         problem_loss = _loss + _regularizers
 
@@ -170,7 +170,8 @@ class DeePC(object):
             raise Exception(f'Error while constructing the DeePC problem. Details: {e}')
 
         self.optimization_problem = OptimizationProblem(
-            variables = OptimizationProblemVariables(u_ini = uini, y_ini = yini, u = u, y = y, g = g, sigma_y = sigma_y),
+            variables = OptimizationProblemVariables(
+                u_ini = uini, y_ini = yini, u = u, y = y, g = g, slack_y = slack_y, slack_u = slack_u),
             constraints = constraints,
             objective_function = problem_loss,
             problem = problem
