@@ -1,4 +1,6 @@
 # PyDeePC
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Last Release](https://img.shields.io/github/v/tag/rssalessio/PyDeePC)](https://github.com/rssalessio/PyDeePC/releases/tag/v0.3.5-alpha)
 
 Python library that implements DeePC: Data-Enabled Predictive Control.
 
