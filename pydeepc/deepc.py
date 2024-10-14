@@ -19,7 +19,7 @@ class DeePC(object):
     optimization_problem: OptimizationProblem = None
     _SMALL_NUMBER: float = 1e-32
 
-    def __init__(self, data: Data, Tini: int, horizon: int):
+    def __init__(self, data: Data, Tini: int, horizon: int, explained_variance: Optional[float] = None):
         """
         Solves the DeePC optimization problem
         For more info check alg. 2 in https://arxiv.org/pdf/1811.05890.pdf
@@ -31,8 +31,10 @@ class DeePC(object):
         :param explained_variance:  Regularization term in (0,1] used to approximate the Hankel matrices.
                                     By default is None (no low-rank approximation is performed).
         """
+        assert explained_variance is None or 0 < explained_variance <= 1, "explained_variance should be in (0,1] or be none"
         self.Tini = Tini
         self.horizon = horizon
+        self.explained_variance = explained_variance
         self.update_data(data)
 
         self.optimization_problem = None
@@ -54,7 +56,7 @@ class DeePC(object):
         assert data.y.shape[0] - self.Tini - self.horizon + 1 >= 1, \
             f"There is not enough data: this value {data.y.shape[0] - self.Tini - self.horizon + 1} needs to be >= 1"
         
-        Up, Uf, Yp, Yf = split_data(data, self.Tini, self.horizon)
+        Up, Uf, Yp, Yf = split_data(data, self.Tini, self.horizon, self.explained_variance)
 
         self.Up = Up
         self.Uf = Uf
@@ -135,8 +137,8 @@ class DeePC(object):
             constraints.append(cp.norm(slack_u, 2) <= DeePC._SMALL_NUMBER)
 
         # u, y = self.Uf @ g, self.Yf @ g
-        u = cp.reshape(u, (self.horizon, self.M))
-        y = cp.reshape(y, (self.horizon, self.P))
+        u = cp.reshape(u, (self.horizon, self.M), order = 'C')
+        y = cp.reshape(y, (self.horizon, self.P), order = 'C')
 
         _constraints = build_constraints(u, y) if build_constraints is not None else (None, None)
 

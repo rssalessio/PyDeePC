@@ -64,7 +64,7 @@ def create_hankel_matrix(data: NDArray[np.float64], order: int) -> NDArray[np.fl
         H[:, idx] = data[idx:idx+order, :].flatten()
     return H
 
-def split_data(data: Data, Tini: int, horizon: int) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+def split_data(data: Data, Tini: int, horizon: int, explained_variance: Optional[float] = None) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """
     Utility function used to split the data into past data and future data.
     Constructs the Hankel matrix for the input/output data, and uses the first
@@ -72,18 +72,25 @@ def split_data(data: Data, Tini: int, horizon: int) -> Tuple[NDArray[np.float64]
     the future data.
     For more info check eq. (4) in https://arxiv.org/pdf/1811.05890.pdf
 
-    :param data:    A tuple of input/output data. Data should have shape TxM
-                    where T is the batch size and M is the number of features
-    :param Tini:    number of samples needed to estimate initial conditions
-    :param horizon: horizon
-    :return:        Returns Up,Uf,Yp,Yf (see eq. (4) of the original DeePC paper)
+    :param data:                A tuple of input/output data. Data should have shape TxM
+                                where T is the batch size and M is the number of features
+    :param Tini:                number of samples needed to estimate initial conditions
+    :param horizon:             horizon
+    :param explained_variance:  Regularization term in (0,1] used to approximate the Hankel matrices.
+                                By default is None (no low-rank approximation is performed).
+    :return:                    Returns Up,Uf,Yp,Yf (see eq. (4) of the original DeePC paper)
     """
     assert Tini >= 1, "Tini cannot be lower than 1"
     assert horizon >= 1, "Horizon cannot be lower than 1"
-
+    assert explained_variance is None or 0 < explained_variance <= 1, "explained_variance should be in (0,1] or be none"
+ 
     Mu, My = data.u.shape[1], data.y.shape[1]
     Hu = create_hankel_matrix(data.u, Tini + horizon)
     Hy = create_hankel_matrix(data.y, Tini + horizon)
+
+    if explained_variance is not None:
+        Hu = low_rank_matrix_approximation(Hu, explained_var=explained_variance)
+        Hy = low_rank_matrix_approximation(Hy, explained_var=explained_variance)
 
     Up, Uf = Hu[:Tini * Mu], Hu[-horizon * Mu:]
     Yp, Yf = Hy[:Tini * My], Hy[-horizon * My:]
@@ -113,7 +120,7 @@ def low_rank_matrix_approximation(
     :return: the low rank approximation of X
     """
     assert len(X.shape) == 2, "X must be a matrix"
-    assert explained_var is None and isinstance(rank, int) or isinstance(explained_var, float), \
+    assert isinstance(rank, tuple([int, float])) or isinstance(explained_var, tuple([int, float])), \
         "You need to specify explained_var or rank!"
     assert explained_var is None or explained_var <= 1. and explained_var > 0, \
         "explained_var must be in (0,1]"
@@ -121,7 +128,7 @@ def low_rank_matrix_approximation(
         "Rank cannot be lower than 1 or greater than min(num_rows, num_cols)"
     assert SVD is None or len(SVD) == 3, "SVD must be a tuple of 3 elements"
 
-    u, s, v = np.linalg.svd(X, **svd_kwargs) if not SVD else SVD
+    u, s, v = np.linalg.svd(X, full_matrices=False, **svd_kwargs) if not SVD else SVD
 
     if rank is None:
         s_squared = np.power(s, 2)
@@ -129,9 +136,9 @@ def low_rank_matrix_approximation(
         z = np.cumsum(s_squared) / total_var
         rank = np.argmax(np.logical_or(z > explained_var, np.isclose(z, explained_var)))
 
-    X_low = np.zeros_like(X)
+    u_low = u[:,:rank]
+    s_low = s[:rank]
+    v_low = v[:rank,:]
 
-    for i in range(rank):
-        X_low += s[i] * np.outer(u[:,i], v[i])
+    X_low = np.dot(u_low * s_low, v_low)
     return X_low
-

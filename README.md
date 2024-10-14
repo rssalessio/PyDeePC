@@ -24,11 +24,14 @@ with sampling time Ts=0.05 [s]. Check the file in `examples\example_siso_pulley.
 ## Requirements
 
 - Python 3.7
-- Numpy, Scipy, CVXPY, Matplotlib, Jupyter (to run the examples)
+- Numpy, Scipy, CVXPY, Matplotlib, Ecos, Jupyter (to run the examples)
+
+You can find a list of libraries in `requirements.txt` 
 
 ## Installation
 
-Use the `setup.py` file to install the library (execute the command `pip install .`)
+Use the `setup.py` file to install the library (execute the command `pip install .`).
+
 
 ## Usage/Examples
 
@@ -106,9 +109,6 @@ for idx in range(300):
 
 - When using the projection regularizer you may encounter some problems while using the ECOS solver. We suggest setting the regularizer to 0, or using another solver (e.g., MOSEK)
 
-## TODO
-
-- Add tests
 
 ## License
 
