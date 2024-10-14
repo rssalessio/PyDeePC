@@ -8,23 +8,25 @@ class System(object):
     """
     Represents a dynamical system that can be simulated
     """
-    def __init__(self, sys: scipysig.StateSpace, x0: Optional[NDArray[np.float64]] = None):
+    def __init__(self, sys: scipysig.StateSpace, x0: Optional[NDArray[np.float64]] = None, noise_std: float = 0.5):
         """
         :param sys: a linear system
         :param x0: initial state
+        :param noise_std: Standard deviation of the measurement noise
         """
         assert x0 is None or sys.A.shape[0] == len(x0), 'Invalid initial condition'
         self.sys = sys
         self.x0 = x0 if x0 is not None else np.zeros(sys.A.shape[0])
         self.u = None
         self.y = None
+        self.noise_std = noise_std
 
-    def apply_input(self, u: NDArray[np.float64], noise_std: float = 0.5) -> Data:
+    def apply_input(self, u: NDArray[np.float64]) -> Data:
         """
         Applies an input signal to the system.
-        :param u: input signal. Needs to be of shape T x M, where T is the batch size and
-                  M is the number of features
-        :param noise_std: standard deviation of the measurement noise
+        
+        :param u: input signal. Needs to be of shape T x M, where T is the batch size and M is the number of features
+
         :return: tuple that contains the (input,output) of the system
         """
         T = len(u)
@@ -36,7 +38,7 @@ class System(object):
             y = self.sys.C @ self.x0
             self.x0 = self.sys.A @ self.x0.flatten() + self.sys.B @ u.flatten()
 
-        y = y + noise_std * np.random.normal(size = T).reshape(T, 1)
+        y = y + self.noise_std * np.random.normal(size = T).reshape(T, 1)
 
         self.u = np.vstack([self.u, u]) if self.u is not None else u
         self.y = np.vstack([self.y, y]) if self.y is not None else y
