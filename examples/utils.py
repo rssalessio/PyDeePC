@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.signal as scipysig
+from numpy.typing import NDArray
 from typing import Optional
 from pydeepc import Data
 
@@ -7,7 +8,7 @@ class System(object):
     """
     Represents a dynamical system that can be simulated
     """
-    def __init__(self, sys: scipysig.StateSpace, x0: Optional[np.ndarray] = None):
+    def __init__(self, sys: scipysig.StateSpace, x0: Optional[NDArray[np.float64]] = None):
         """
         :param sys: a linear system
         :param x0: initial state
@@ -18,7 +19,7 @@ class System(object):
         self.u = None
         self.y = None
 
-    def apply_input(self, u: np.ndarray, noise_std: float = 0.5) -> Data:
+    def apply_input(self, u: NDArray[np.float64], noise_std: float = 0.5) -> Data:
         """
         Applies an input signal to the system.
         :param u: input signal. Needs to be of shape T x M, where T is the batch size and
@@ -55,7 +56,7 @@ class System(object):
         """
         return Data(self.u, self.y)
 
-    def reset(self, data_ini: Optional[Data] = None, x0: Optional[np.ndarray] = None):
+    def reset(self, data_ini: Optional[Data] = None, x0: Optional[NDArray[np.float64]] = None):
         """
         Reset initial state and collected data
         """

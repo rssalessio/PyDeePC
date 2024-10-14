@@ -1,8 +1,7 @@
-from cmath import isclose
-from copy import deepcopy
 import math
 import numpy as np
 import cvxpy as cp
+from numpy.typing import NDArray
 from typing import Tuple, Callable, List, Optional, Union, Dict
 from cvxpy.expressions.expression import Expression
 from cvxpy.constraints.constraint import Constraint
@@ -183,7 +182,7 @@ class DeePC(object):
             self,
             data_ini: Data,
             **cvxpy_kwargs
-        ) -> Tuple[np.ndarray, Dict[str, Union[float, np.ndarray, OptimizationProblemVariables]]]:
+        ) -> Tuple[NDArray[np.float64], Dict[str, Union[float, NDArray[np.float64], OptimizationProblemVariables]]]:
         """
         Solves the DeePC optimization problem
         For more info check alg. 2 in https://arxiv.org/pdf/1811.05890.pdf

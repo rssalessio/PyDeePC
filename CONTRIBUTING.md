@@ -1,1 +1,1 @@
-For contributing, please open a pull request, or get in touch with alessior@kth.se
+For contributing, please open a pull request, or get in touch with arusso2@bu.edu

@@ -2,6 +2,7 @@ import numpy as np
 from typing import NamedTuple, Tuple, Optional, List, Union
 from cvxpy import Expression, Variable, Problem, Parameter
 from cvxpy.constraints.constraint import Constraint
+from numpy.typing import NDArray
 
 class OptimizationProblemVariables(NamedTuple):
     """
@@ -36,26 +37,26 @@ class Data(NamedTuple):
     :param u: input data
     :param y: output data
     """
-    u: np.ndarray
-    y: np.ndarray
+    u: NDArray[np.float64]
+    y: NDArray[np.float64]
 
 
-def create_hankel_matrix(data: np.ndarray, order: int) -> np.ndarray:
+def create_hankel_matrix(data: NDArray[np.float64], order: int) -> NDArray[np.float64]:
     """
     Create an Hankel matrix of order L from a given matrix of size TxM,
     where M is the number of features and T is the batch size.
     Note that we need L <= T.
 
-    :param data:    A matrix of data (size TxM). 
-                    T is the batch size and M is the number of features
-    :param order:   the order of the Hankel matrix (L)
-    :return:        The Hankel matrix of type np.ndarray
+    :param data:  A matrix of data (size TxM). 
+                  T is the batch size and M is the number of features
+    :param order: The order of the Hankel matrix (L)
+    :return:      The Hankel matrix of type np.ndarray
     """
     data = np.array(data)
     
     assert len(data.shape) == 2, "Data needs to be a matrix"
 
-    T,M = data.shape
+    T, M = data.shape
     assert T >= order and order > 0, "The number of data points needs to be larger than the order"
 
     H = np.zeros((order * M, (T - order + 1)))
@@ -63,7 +64,7 @@ def create_hankel_matrix(data: np.ndarray, order: int) -> np.ndarray:
         H[:, idx] = data[idx:idx+order, :].flatten()
     return H
 
-def split_data(data: Data, Tini: int, horizon: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def split_data(data: Data, Tini: int, horizon: int) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """
     Utility function used to split the data into past data and future data.
     Constructs the Hankel matrix for the input/output data, and uses the first
@@ -90,11 +91,11 @@ def split_data(data: Data, Tini: int, horizon: int) -> Tuple[np.ndarray, np.ndar
     return Up, Uf, Yp, Yf
 
 def low_rank_matrix_approximation(
-        X: np.ndarray,
+        X:NDArray[np.float64],
         explained_var: Optional[float] = 0.9,
         rank: Optional[int] = None,
-        SVD: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None,
-        **svd_kwargs):
+        SVD: Optional[Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]] = None,
+        **svd_kwargs) -> NDArray[np.float64]:
     """
     Computes an low-rank approximation of a matrix
 

@@ -5,7 +5,7 @@
 Python library that implements DeePC: Data-Enabled Predictive Control.
 
 _Original paper_: [Data-Enabled Predictive Control: In the Shallows of the DeePC](https://arxiv.org/pdf/1811.05890.pdf)\
-_Library Author_: Alessio Russo (PhD Student at KTH - alessior@kth.se)\
+_Library Author_: Alessio Russo (arusso2@bu.edu)\
 _License_: MIT
 
 _Other contributors_:
@@ -24,7 +24,7 @@ with sampling time Ts=0.05 [s]. Check the file in `examples\example_siso_pulley.
 ## Requirements
 
 - Python 3.7
-- Numpy, Scipy, CVXPY
+- Numpy, Scipy, CVXPY, Matplotlib, Jupyter (to run the examples)
 
 ## Installation
 
